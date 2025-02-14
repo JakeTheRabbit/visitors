@@ -26,11 +26,45 @@
         form {
             margin-bottom: 2rem;
         }
+        .sign-out-button {
+            margin: 0.5rem 0;
+            width: 100%;
+            text-align: left;
+        }
+        #sign-out-options {
+            margin-top: 1rem;
+        }
+        .feedback-message {
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+        }
+        .feedback-message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .feedback-message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .sign-out-section {
+            margin-top: 2rem;
+            padding: 1rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        #sign-out-feedback {
+            margin-top: 1rem;
+        }
     </style>
 </head>
 <body>
     <main class="container">
         <h1>Facility visitor sign-in by Chill Division</h1>
+        
+        <!-- Sign-in Form -->
         <form id="sign-in-form">
             <label for="name">Name:</label>
             <input type="text" id="name" name="name" required><br>
@@ -49,14 +83,30 @@
             <button type="submit">Sign In</button>
         </form>
 
-        <h2>Sign Out</h2>
-        <label for="sign-out-name">Start typing your name:</label>
-        <input type="text" id="sign-out-name">
-        <div id="sign-out-options"></div>
+        <!-- Sign-out Section -->
+        <div class="sign-out-section">
+            <h2>Sign Out</h2>
+            <label for="sign-out-name">Start typing your name:</label>
+            <input type="text" id="sign-out-name" placeholder="Type your full name">
+            <div id="sign-out-options"></div>
+            <div id="sign-out-feedback"></div>
+        </div>
     </main>
 
     <script>
         $(document).ready(function() {
+            // Function to show feedback messages
+            function showFeedback(message, isSuccess, elementId) {
+                const feedbackClass = isSuccess ? 'success' : 'error';
+                const feedbackHtml = `<div class="feedback-message ${feedbackClass}">${message}</div>`;
+                $(`#${elementId}`).html(feedbackHtml);
+                
+                // Clear feedback after 5 seconds
+                setTimeout(() => {
+                    $(`#${elementId}`).empty();
+                }, 5000);
+            }
+
             // 1. Fetch and display terms on page load
             $.ajax({
                 url: 'process.php',
@@ -80,25 +130,37 @@
                     type: 'POST',
                     data: formData,
                     success: function(response) {
-                        alert(response);
-                        // Clear the form fields after successful sign-in
-                        $('#sign-in-form')[0].reset();
+                        showFeedback(response, response.includes('successful'), 'sign-out-feedback');
+                        if (response.includes('successful')) {
+                            $('#sign-in-form')[0].reset();
+                        }
+                    },
+                    error: function() {
+                        showFeedback('An error occurred while signing in. Please try again.', false, 'sign-out-feedback');
                     }
                 });
             });
 
-            // 3. Handle sign-out name input (remains the same)
+            // 3. Handle sign-out name input with debounce
+            let searchTimeout;
             $('#sign-out-name').on('input', function() {
-                let searchTerm = $(this).val();
-                if (searchTerm.length >= 3) {
-                    $.ajax({
-                        url: 'process.php',
-                        type: 'POST',
-                        data: { action: 'search_for_sign_out', searchTerm: searchTerm },
-                        success: function(response) {
-                            $('#sign-out-options').html(response);
-                        }
-                    });
+                clearTimeout(searchTimeout);
+                const searchTerm = $(this).val();
+                
+                if (searchTerm.length >= 2) { // Reduced to 2 characters for better usability
+                    searchTimeout = setTimeout(() => {
+                        $.ajax({
+                            url: 'process.php',
+                            type: 'POST',
+                            data: { action: 'search_for_sign_out', searchTerm: searchTerm },
+                            success: function(response) {
+                                $('#sign-out-options').html(response);
+                            },
+                            error: function() {
+                                showFeedback('Error searching for visitors', false, 'sign-out-feedback');
+                            }
+                        });
+                    }, 300); // 300ms debounce delay
                 } else {
                     $('#sign-out-options').empty();
                 }
@@ -106,16 +168,23 @@
 
             // 4. Handle sign-out button click
             $(document).on('click', '.sign-out-button', function() {
-                var visitorId = $(this).data('visitor-id');
+                const visitorId = $(this).data('visitor-id');
+                const visitorName = $(this).text();
+
                 $.ajax({
                     url: 'process.php',
                     type: 'POST',
                     data: { action: 'sign_out', visitorId: visitorId },
                     success: function(response) {
-                        alert(response);
-                        // Clear the sign-out options and the search input
-                        $('#sign-out-options').empty();
-                        $('#sign-out-name').val('');
+                        showFeedback(response, response.includes('successful'), 'sign-out-feedback');
+                        if (response.includes('successful')) {
+                            // Clear the sign-out options and the search input
+                            $('#sign-out-options').empty();
+                            $('#sign-out-name').val('');
+                        }
+                    },
+                    error: function() {
+                        showFeedback('An error occurred while signing out. Please try again.', false, 'sign-out-feedback');
                     }
                 });
             });

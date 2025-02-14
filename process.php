@@ -25,7 +25,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         if ($result->num_rows > 0) {
             while($row = $result->fetch_assoc()) {
-                echo "<label><input type='checkbox' name='terms[]' value='{$row['term_text']}' required> {$row['term_text']}</label><br>";
+                $term = htmlspecialchars($row['term_text'], ENT_QUOTES, 'UTF-8');
+                echo "<label><input type='checkbox' name='terms[]' value='{$term}' required> {$term}</label><br>";
             }
         } else {
             echo "No terms found.";
@@ -33,50 +34,63 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     } 
     elseif ($action == 'sign_in') {
         // Handle sign-in form submission
-        $name = $_POST['name'];
-        $contact = $_POST['contact'];
-        $company = $_POST['company'];
-        $visiting = $_POST['visiting'];
+        $name = $conn->real_escape_string($_POST['name']);
+        $contact = $conn->real_escape_string($_POST['contact']);
+        $company = $conn->real_escape_string($_POST['company']);
+        $visiting = $conn->real_escape_string($_POST['visiting']);
         $timestamp = date('Y-m-d H:i:s'); 
 
-        $sql = "INSERT INTO visitors (name, contact, company, visiting, timestamp) 
-                VALUES ('$name', '$contact', '$company', '$visiting', '$timestamp')";
+        $stmt = $conn->prepare("INSERT INTO visitors (name, contact, company, visiting, timestamp) VALUES (?, ?, ?, ?, ?)");
+        $stmt->bind_param("sssss", $name, $contact, $company, $visiting, $timestamp);
 
-        if ($conn->query($sql) === TRUE) {
+        if ($stmt->execute()) {
             echo "Sign-in successful!";
         } else {
-            echo "Error: " . $sql . "<br>" . $conn->error;
+            echo "Error: " . $stmt->error;
         }
+        $stmt->close();
     }
     elseif ($action == 'search_for_sign_out') {
-        // Handle sign-out search
-        $searchTerm = $_POST['searchTerm'];
+        // Handle sign-out search with improved name search
+        $searchTerm = $conn->real_escape_string($_POST['searchTerm']);
         $today = date('Y-m-d');
 
-        $sql = "SELECT id, name FROM visitors 
-                WHERE name LIKE '$searchTerm%' AND DATE(timestamp) = '$today' AND sign_out_timestamp IS NULL"; 
-        $result = $conn->query($sql);
+        // Modified query to search for names containing the search term
+        $stmt = $conn->prepare("SELECT id, name FROM visitors 
+                WHERE name LIKE ? AND DATE(timestamp) = ? AND sign_out_timestamp IS NULL");
+        $searchPattern = "%" . $searchTerm . "%"; // Add % to both sides to match anywhere in the name
+        $stmt->bind_param("ss", $searchPattern, $today);
+        $stmt->execute();
+        $result = $stmt->get_result();
 
         if ($result->num_rows > 0) {
             while($row = $result->fetch_assoc()) {
-                echo "<button type='button' class='sign-out-button' data-visitor-id='{$row['id']}'>{$row['name']}</button><br>";
+                $name = htmlspecialchars($row['name'], ENT_QUOTES, 'UTF-8');
+                echo "<button type='button' class='sign-out-button' data-visitor-id='{$row['id']}'>{$name}</button><br>";
             }
         } else {
             echo "No matching visitors found.";
         }
+        $stmt->close();
     }
     elseif ($action == 'sign_out') {
         // Handle sign-out action
-        $visitorId = $_POST['visitorId'];
+        $visitorId = (int)$_POST['visitorId']; // Cast to integer for safety
         $signoutTimestamp = date('Y-m-d H:i:s');
 
-        $sql = "UPDATE visitors SET sign_out_timestamp = '$signoutTimestamp' WHERE id = $visitorId";
+        $stmt = $conn->prepare("UPDATE visitors SET sign_out_timestamp = ? WHERE id = ? AND sign_out_timestamp IS NULL");
+        $stmt->bind_param("si", $signoutTimestamp, $visitorId);
 
-        if ($conn->query($sql) === TRUE) {
-            echo "Sign-out successful!"; 
+        if ($stmt->execute()) {
+            if ($stmt->affected_rows > 0) {
+                echo "Sign-out successful!";
+            } else {
+                echo "No active visitor found or already signed out.";
+            }
         } else {
-            echo "Error: " . $sql . "<br>" . $conn->error;
+            echo "Error: " . $stmt->error;
         }
+        $stmt->close();
     }
 }
 
