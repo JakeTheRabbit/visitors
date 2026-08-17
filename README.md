@@ -1,4 +1,6 @@
 # Visitor sign-in by Chill Division
+> **This repo is free. My 2am dryback debugging is not.** If it saved you a crop, a weekend, or a nervous breakdown — [buy the rabbit a bag of nutes](https://github.com/sponsors/JakeTheRabbit). If it didn't, keep your money. I respect a tight nutrient budget.
+
 A simple facility visitor sign in / out tracker
 
 This is designed to allow visitors to quickly check in to your site, while not causing any issues if they don't sign out.
@@ -21,5 +23,3 @@ Then import the database:
 Optionally in process.php there is the capacity to IP-restrict this to just your sites IP address. Useful if it's a publicly accessible sign-in site and you want to avoid any random sign-ins.
 
 Modify your config.php to include the servername / user / pass / dbname too
-
-> **This repo is free. My 2am dryback debugging is not.** If it saved you a crop, a weekend, or a nervous breakdown — [buy the rabbit a bag of nutes](https://github.com/sponsors/JakeTheRabbit). If it didn't, keep your money. I respect a tight nutrient budget.
